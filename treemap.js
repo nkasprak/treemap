@@ -1,57 +1,5 @@
 // JavaScript Document
 
-var tree_data = [
-	{
-		id:"set1",
-		name: "Set 1",
-		data: [
-			{
-				name: "Set 1a",
-				id:"set1a",
-				data: 10	
-			}, 
-			{
-				name: "Set 1b",
-				id:"set1b",
-				data: 20	
-			}
-		
-		],
-	},
-	{
-		name: "Set 2",
-		id:"set2",
-		data: 30
-	},
-	{
-		name: "Set 3",
-		id:"set3",
-		data: [
-			{
-				name: "Set 3a",
-				id:"set3a",
-				data: 20
-			}, 
-			{
-				id:"set3b",
-				name: "Set 3b",
-				data: [
-					{
-						name: "Set 3b1",
-						id:"set3b1",
-						data: 5
-					},
-					{
-						name: "Set 3b2",
-						id:"set3b2",
-						data: 8	
-					}
-				]	
-			}
-		]	
-	}
-];
-
 var tree_map = {};
 
 (function(t) {
@@ -107,65 +55,112 @@ var tree_map = {};
 		return returnBoxes;
 	}
 	t.createRaphaelCanvas = function(canvasID) {
-		var $canvas = $(canvasID);
-		return Raphael("raphaelPaper",$canvas.width(),$canvas.height());
+		var $canvas = $("#" + canvasID);
+		t.paper = Raphael(canvasID,$canvas.width(),$canvas.height());
+		return t.paper;
 	}
-	t.drawTreeData = function(paper,boxList,initialColor) {
+	t.resetTextColors = function() {
+		$.each(t.textByID,function(id,textObj) {
+			textObj.attr({"fill":"#fff","opacity":1});
+		});
+	}
+	t.rectHover = function(node) {
+		var x,y,height,width,name;
+		var level = t.levelByID[t.idByRaphaelID[node.raphaelid]];
+		if (t.overlayRect) t.overlayRect.remove();
+		if (t.secondaryOverlayRect) t.secondaryOverlayRect.remove();
+		
+		var id = t.idByRaphaelID[node.raphaelid];
+		if (level < t.hoverState) {
+			t.hoverState = level;
+		}
+		
+		function drawOverlayRect(rectID,mode) {
+			x = t.rectByID[id].attrs.x;
+			y = t.rectByID[id].attrs.y;
+			height = t.rectByID[id].attrs.height;
+			width = t.rectByID[id].attrs.width;
+			if (mode=="primary") {
+				t.overlayRect = t.paper.rect(x+1,y+1,width-2,height-2);
+				t.overlayRect.attr({"stroke":"#ff0","stroke-width":2,"stroke-opacity":0.5,"fill-opacity":0});
+			} else if (mode=="secondary") {
+				t.secondaryOverlayRect =  t.paper.rect(x+2,y+2,width-4,height-4);
+				t.secondaryOverlayRect.attr({"stroke":"#f00","stroke-width":4,"stroke-opacity":0.5,"fill-opacity":0});
+				
+			}
+		}
+		
+		while (level > t.hoverState) {
+			if (level == t.hoverState+1) drawOverlayRect(id,"secondary");
+			level = t.levelByID[t.rectParents[id]];
+			id = t.idByRaphaelID[t.rectByID[t.rectParents[id]].id];
+		}
+		drawOverlayRect(id,"primary");
+		t.resetTextColors();
+		if (t.textByID[id]) t.textByID[id].attr({"fill":"#ff0","opacity":0.5});
+		
+		name =  t.nameByID[id]
+		if (t.hoverText) {
+			if (t.hoverText.attr("text") != name) {
+				t.hoverText.remove();
+				if (t.hoverState > 0) {
+					t.hoverText = t.paper.text(x+width/2,y+height/2,name);
+					t.hoverText.attr({"font-size":14,"fill":"#ff0","opacity":0.5});
+				}
+			}
+			
+		} else {
+			if (t.hoverState > 0) {
+				t.hoverText = t.paper.text(x+width/2,y+height/2,name);
+				t.hoverText.attr({"font-size":14,"fill":"#ff0","opacity":0.5});	
+			}
+		}
+		
+	};
+	t.rectClick = function(node) {
+		var id = t.idByRaphaelID[node.raphaelid];
+		var level = t.levelByID[id];
+		t.hoverState = (t.hoverState+1)%(t.maxLevel+1);
+		
+		t.rectHover(node);
+	}
+	t.drawTreeData = function(boxList,initialColor,duration) {
 		var currentColor = initialColor
 		opacity=1,
-		tintColor = "#ff0000";
-		t.rectByID = {};
-		t.textByID = {};
+		tintColor = "#ff0000",
+		paper = t.paper;
+		if (typeof(t.rectByID)=="undefined") t.rectByID = {};
+		if (typeof(t.textByID)=="undefined") t.textByID = {};
+		delete(t.baseAnimation);
+		delete(t.baseAnimationEl);
 		t.rectParents = {};
 		t.idByRaphaelID = {};
 		t.nameByID = {};
 		t.levelByID = {};
 		t.hoverState = 0,
 		t.maxLevel = 0;
-		rectHover = function(node) {
-			var x,y,height,width,name;
-			var level = t.levelByID[t.idByRaphaelID[node.raphaelid]];
-			for (var or in t.rectByID) {
-				t.rectByID[or].attr("stroke-width",0);
-			}
-			var id = t.idByRaphaelID[node.raphaelid];
-			if (level < t.hoverState) {
-				t.hoverState = level;
-			}
-			while (level > t.hoverState) {
-				level = t.levelByID[t.rectParents[id]];
-				id = t.idByRaphaelID[t.rectByID[t.rectParents[id]].id];
-			}
-			t.rectByID[id].attr("stroke-width",2);
-			t.rectByID[id].attr("stroke","#f00");
-			x = t.rectByID[id].attrs.x;
-			y = t.rectByID[id].attrs.y;
-			height = t.rectByID[id].attrs.height;
-			width = t.rectByID[id].attrs.width;
-			name =  t.nameByID[id]
-			if (t.hoverText) {
-				if (t.hoverText.attr("text") != name) {
-					t.hoverText.remove();
-					if (t.hoverState > 0) {
-						t.hoverText = paper.text(x+width/2,y+height/2,name);
-						t.hoverText.attr({"font-size":14,"fill":"#fff"});
-					}
+		
+		//delete unused rectangles
+		$.each(t.rectByID,function(id,rect) {
+			var removeBox = true;
+			$.each(boxList,function(i,box) {
+				if (box.id == id) removeBox = false;
+			});
+			if (removeBox) {
+				if (typeof(t.rectByID[id]) !== "undefined") {
+					t.rectByID[id].remove();
+					delete(t.rectByID[id]);
 				}
-				
-			} else {
-				if (t.hoverState > 0) {
-					t.hoverText = paper.text(x+width/2,y+height/2,name);
-					t.hoverText.attr({"font-size":14,"fill":"#fff"});	
+				if (typeof(t.textByID[id]) !== "undefined") {
+					t.textByID[id].remove();
+					delete(t.textByID[id]);
 				}
 			}
-			
-		};
-		rectClick = function(node) {
-			var id = t.idByRaphaelID[node.raphaelid];
-			var level = t.levelByID[id];
-			t.hoverState = (t.hoverState+1)%(t.maxLevel+1);
-			rectHover(node);
-		}
+		});
+		if (t.overlayRect) t.overlayRect.remove();
+		if (t.secondaryOverlayRect) t.secondaryOverlayRect.remove();
+		t.resetTextColors();
+		
 		$.each(boxList,function(i,rect) {
 			var box = rect.coords,
 			level = rect.level,
@@ -178,16 +173,31 @@ var tree_map = {};
 			if (level > t.maxLevel) t.maxLevel = level;
 			t.levelByID[rect.id] = level;
 			t.nameByID[rect.id] = rect.name;
-			t.rectByID[rect.id] = paper.rect(x,y,width,height);
+			if (typeof(t.rectByID[rect.id]) == "undefined") {
+				t.rectByID[rect.id] = paper.rect(x,y,width,height);
+			} else {
+				if (typeof(t.baseAnimation == "undefined")) {
+					t.baseAnimation = Raphael.animation({x:x,y:y,width:width,height:height},duration);
+					t.baseAnimationEl = t.rectByID[rect.id];
+					t.rectByID[rect.id].animate(t.baseAnimation);
+				} else {
+					t.rectByID[rect.id].animateWith(
+						t.baseAnimationEl,
+						t.baseAnimation,
+						{x:x,y:y,width:width,height:height}
+					);
+				}
+			}
 			t.rectByID[rect.id].attr("stroke-width",0);
 			t.rectParents[rect.id] = rect.parent;
 			t.idByRaphaelID[t.rectByID[rect.id].id] = rect.id;
 			$node = $(t.rectByID[rect.id].node);
+			$node.off("mousemove touchstart click");
 			$node.on("mousemove touchstart", function(e) {
-				rectHover(this);	
+				t.rectHover(this);	
 			});
 			$node.on("click", function(e) {
-				rectClick(this);
+				t.rectClick(this);
 			});
 			switch (level) {
 				case 0 :
@@ -195,8 +205,22 @@ var tree_map = {};
 				hsvColor = t.colorUtils.RGBToHSV(t.colorUtils.HexToRGB(currentColor));
 				hsvColor[0] = (hsvColor[0] - 20)%360;
 				currentColor = t.colorUtils.RGBToHex(t.colorUtils.HSVToRGB(hsvColor));
-				t.textByID[rect.id] = paper.text(x+5,y+15,rect.name);
-				t.textByID[rect.id].attr({"font-size":16,"text-anchor":"start","fill":"#fff"});
+				if (typeof(t.textByID[rect.id]) == "undefined") {
+					t.textByID[rect.id] = paper.text(x+5,y+15,rect.name);
+					t.textByID[rect.id].attr({"font-size":16,"text-anchor":"start","fill":"#fff"});
+				} else {
+					if (typeof(t.baseAnimation == "undefined")) {
+						t.baseAnimation = Raphael.animation({x:x+5,y:y+15},duration);
+						t.baseAnimationEl = t.textByID[rect.id];
+						t.textByID[rect.id].animate(t.baseAnimation);
+					} else {
+						t.textByID[rect.id].animateWith(
+							t.baseAnimationEl,
+							t.baseAnimation,
+							{x:x+5,y:y+15}
+						);
+					}
+				}
 				break;
 				case 1:
 				t.rectByID[rect.id].attr("fill","#000");
@@ -220,8 +244,15 @@ var tree_map = {};
 })(tree_map);
 
 $(document).ready(function() {
-	var canvas = tree_map.createRaphaelCanvas("#raphaelPaper");
+	var canvas = tree_map.createRaphaelCanvas("raphaelPaper");
 	var boxes = tree_map.returnCoords(tree_data,$("#raphaelPaper").width(), $("#raphaelPaper").height());
-	tree_map.drawTreeData(canvas,boxes,"#62a3b4");
+	var boxes2 = tree_map.returnCoords(tree_data_2,$("#raphaelPaper").width(), $("#raphaelPaper").height());
+	tree_map.drawTreeData(boxes,"#62a3b4");
+	$("#set2").click(function() {
+		tree_map.drawTreeData(boxes2,"#62a3b4",400);
+	});
+	$("#set1").click(function() {
+		tree_map.drawTreeData(boxes,"#62a3b4",400);
+	});
 });
 
