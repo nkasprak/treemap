@@ -16,7 +16,7 @@ var tree_data = [
 				data: 20	
 			}
 		
-		],
+		]
 	},
 	{
 		name: "Set 2",
@@ -39,7 +39,54 @@ var tree_data = [
 					{
 						name: "Set 3b1",
 						id:"set3b1",
-						data: 5
+						data: [
+							{
+								name: "Set 3b1a",
+								id: "set3b1a",
+								data: 1
+							},
+							{
+								name: "Set 3b1b",
+								id: "set3b1b",
+								data: 1
+							},
+							{
+								name: "Set 3b1c",
+								id: "set3b1c",
+								data: 1
+							},
+							{
+								name: "Set 3b1d",
+								id: "set3b1d",
+								data: 1
+							},
+							{
+								name: "Set 3b1e",
+								id: "set3b1e",
+								data: 1
+							},
+							{
+								name: "Set 3b1f",
+								id: "set3b1f",
+								data: 1
+							},
+							{
+								name: "Set 3b1g",
+								id: "set3b1g",
+								data: [
+									{
+										name: "Set 3b1g1",
+										id: "set3b1g1",	
+										data: 0.5
+									},
+									{
+										name: "Set 3b1g2",
+										id: "set3b1g2",	
+										data: 0.5
+									}
+								]
+							}
+						]	
 					},
 					{
 						name: "Set 3b2",
@@ -68,7 +115,7 @@ var tree_data_2 = [
 				data: 21	
 			}
 		
-		],
+		]
 	},
 	{
 		name: "Set 2",
@@ -91,7 +138,54 @@ var tree_data_2 = [
 					{
 						name: "Set 3b1",
 						id:"set3b1",
-						data: 5
+						data: [
+							{
+								name: "Set 3b1a",
+								id: "set3b1a",
+								data: 1
+							},
+							{
+								name: "Set 3b1b",
+								id: "set3b1b",
+								data: 1
+							},
+							{
+								name: "Set 3b1c",
+								id: "set3b1c",
+								data: 1
+							},
+							{
+								name: "Set 3b1d",
+								id: "set3b1d",
+								data: 1
+							},
+							{
+								name: "Set 3b1e",
+								id: "set3b1e",
+								data: 1
+							},
+							{
+								name: "Set 3b1f",
+								id: "set3b1f",
+								data: 1
+							},
+							{
+								name: "Set 3b1g",
+								id: "set3b1g",
+								data: [
+									{
+										name: "Set 3b1g1",
+										id: "set3b1g1",	
+										data: 0.5
+									},
+									{
+										name: "Set 3b1g2",
+										id: "set3b1g2",	
+										data: 0.5
+									}
+								]
+							}
+						]	
 					},
 					{
 						name: "Set 3b2",
