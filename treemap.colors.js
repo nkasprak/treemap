@@ -4,7 +4,7 @@
 	t.colorUtils = {
 		//http://stackoverflow.com/questions/17242144/javascript-convert-hsb-hsv-color-to-rgb-accurately
 		HSVToRGB: function(arr) {
-			var h = arr[0]/255,
+			var h = arr[0]/360,
 			s = arr[1]/100,
 			v = arr[2]/100,
 			r, g, b, i, f, p, q, t;

@@ -8,8 +8,9 @@ var tree_map = {
 		t.initialize = function() {
 			if (tree_map.colorUtils) t.colorUtils = tree_map.colorUtils;
 		};
-		t.returnCoords = function(d,width,height) {
-			var i,getTotal,total,recurse,recursionLevel=0,returnBoxes = [];
+		t.returnCoords = function(d,width,height, layoutOverride) {
+			if (typeof(layoutOverride)=="undefined") layoutOverride = null;
+			var i,getTotal,total,recurse,recursionLevel=0,returnBoxes = [], layoutDef = {}, stripDef;
 			getTotal = function(dataArr) {
 				var total = 0;
 				switch(typeof(dataArr)) {
@@ -26,101 +27,163 @@ var tree_map = {
 					throw "error: data invalid";
 				}
 			}
-			
 			returnBoxes.push({id:"globalBox",name:"",level:-1,coords:[[0,0],[width,height]],parent:"none",value:getTotal(d)});
-			
 			recurse = function(d,topLeft,bottomRight,parentID) {
 				var box, height, width, ratio, subtotal, 
 				total = getTotal(d), j, k, stripCount, stripTotal, 
 				stripWidth, stripHeight, remainingNodes, stripTopLeft, 
-				stripBottomRight, startNode, stripRatio, stripCond;
+				stripBottomRight, startNode, stripRatio, stripCond,
+				dByID={},oD;
 				for (j=0;j<d.length;j++) {
 					d[j].calculatedTotal = getTotal(d[j].data);
 				}
+				
 				d.sort(function(a,b) {
 					return b.calculatedTotal - a.calculatedTotal;
 				});
 				
 				j=0;
-				//stripCount = Math.floor(Math.sqrt(d.length));
-				while (j<d.length) {
-					width = bottomRight[0] - topLeft[0];
-					height = bottomRight[1] - topLeft[1];
-					stripTotal = 0;
-					//stripCount = Math.floor(Math.sqrt(d.length - j));
-					//remainingNodes = Math.min(d.length - j,stripCount);
-					startNode = j;
-					stripCond = true;
-					remainingNodes = 0;
-					while (stripCond) {
-						
-						stripTotal += d[j].calculatedTotal;
-						stripRatio = stripTotal/total;
-						if (width >= height) {
-							stripWidth = stripRatio*width;
-							stripHeight = height;	
+				layoutDef[parentID] = [];
+				try {
+					if (layoutOverride) {
+						if (layoutOverride[parentID]) {
+							//organize data by ID
+							for (j=0;j<d.length;j++) {
+								dByID[d[j].id] = d[j];
+							}
+							oD = layoutOverride[parentID];
+							//do layout based on set pattern
+							for (j=0;j<oD.length;j++) {
+								width = bottomRight[0] - topLeft[0];
+								height = bottomRight[1] - topLeft[1];
+								stripTotal = 0;
+								for (k=0;k<oD[j].boxes.length;k++) {
+									stripTotal += dByID[oD[j].boxes[k]].calculatedTotal;
+								}
+								stripRatio = stripTotal/total;
+								
+								if (oD[j].direction=="vertical") {
+									stripWidth = stripRatio*width;
+									stripHeight = height;
+								} else {
+									stripWidth = width;
+									stripHeight = stripRatio*height;
+								}
+								if (oD[j].direction=="vertical") {
+									stripTopLeft = [topLeft[0],topLeft[1]];
+									stripBottomRight = [topLeft[0] + stripWidth,bottomRight[1]];
+								} else {
+									stripTopLeft = [topLeft[0],topLeft[1]];
+									stripBottomRight = [bottomRight[0],topLeft[1]+stripHeight];
+								}
+								
+								for (k=0;k<oD[j].boxes.length;k++) {
+									
+									subtotal = dByID[oD[j].boxes[k]].calculatedTotal;
+									ratio = subtotal/stripTotal;
+									
+									if (stripWidth>stripHeight) {
+										box = [ [stripTopLeft[0],stripTopLeft[1]],
+												[stripTopLeft[0] + stripWidth*ratio,stripBottomRight[1]]];
+										stripTopLeft[0] += stripWidth*ratio;
+									} else {
+										box = [ [stripTopLeft[0],stripTopLeft[1]],
+												[stripBottomRight[0],stripTopLeft[1] + stripHeight*ratio]];
+										stripTopLeft[1] += stripHeight*ratio;
+									}
+									if (typeof(dByID[oD[j].boxes[k]].name)=="undefined")  dByID[oD[j].boxes[k]].name= dByID[oD[j].boxes[k]].id;
+									if (subtotal > 0) returnBoxes.push({id:dByID[oD[j].boxes[k]].id,coords:box,level:recursionLevel,parent:parentID,name:dByID[oD[j].boxes[k]].name,value:subtotal});
+									if (typeof(dByID[oD[j].boxes[k]].data) == "object") {
+										recursionLevel++;
+										recurse(dByID[oD[j].boxes[k]].data,[box[0][0],box[0][1]],[box[1][0],box[1][1]],dByID[oD[j].boxes[k]].id);
+										recursionLevel--;	
+									}
+								}
+								
+								total -= stripTotal;
+								if (oD[j].direction == "vertical") {
+									topLeft[0] += stripWidth;	
+								} else {
+									topLeft[1] += stripHeight;
+								}
+							}
 						} else {
-							stripWidth = width;
-							stripHeight = stripRatio*height;
+							throw("default");		
 						}
-						
-						remainingNodes++;
-						
-						
-						j++;
-						
-						stripCond = (!(Math.max(stripWidth/stripHeight, stripHeight/stripWidth) <= remainingNodes)) && j<d.length;
-					
-					}
-					
-					
-					
-					if (width<height) {
-						
-						stripTopLeft = [topLeft[0],topLeft[1]];
-						stripBottomRight = [bottomRight[0],topLeft[1]+stripHeight];
 					} else {
-						
-						stripTopLeft = [topLeft[0],topLeft[1]];
-						stripBottomRight = [topLeft[0] + stripWidth,bottomRight[1]];
+						throw("default");	
 					}
-					
-					for (k=0;k<remainingNodes;k++) {
-						
-						subtotal = d[k+startNode].calculatedTotal;
-						ratio = subtotal/stripTotal;
-						if (stripWidth > stripHeight) {
-							box = [ [stripTopLeft[0],stripTopLeft[1]],
-									[stripTopLeft[0] + stripWidth*ratio,stripBottomRight[1]]];
-							stripTopLeft[0] +=stripWidth*ratio;
-						} else {
-							box = [ [stripTopLeft[0],stripTopLeft[1]],
-									[stripBottomRight[0],stripTopLeft[1] + stripHeight*ratio]];
-							stripTopLeft[1] += stripHeight*ratio;
+				} catch (ex) {
+					if (ex=="default") {
+						while (j<d.length) {
+							stripDef = {};
+							stripDef.boxes = [];
+							width = bottomRight[0] - topLeft[0];
+							height = bottomRight[1] - topLeft[1];
+							stripTotal = 0;
+							startNode = j;
+							stripCond = true;
+							remainingNodes = 0;
+							while (stripCond) {
+								stripTotal += d[j].calculatedTotal;
+								stripRatio = stripTotal/total;
+								if (width >= height) {
+									stripDef.direction="vertical";
+									stripWidth = stripRatio*width;
+									stripHeight = height;	
+								} else {
+									stripDef.direction="horizontal";
+									stripWidth = width;
+									stripHeight = stripRatio*height;
+								}
+								stripDef.boxes.push(d[j].id);
+								remainingNodes++;
+								j++;
+								stripCond = (!(Math.max(stripWidth/stripHeight, stripHeight/stripWidth) <= remainingNodes)) && j<d.length;
+							}
+							if (width>=height) {
+								stripTopLeft = [topLeft[0],topLeft[1]];
+								stripBottomRight = [topLeft[0] + stripWidth,bottomRight[1]];
+							} else {
+								stripTopLeft = [topLeft[0],topLeft[1]];
+								stripBottomRight = [bottomRight[0],topLeft[1]+stripHeight];
+							}
+							layoutDef[parentID].push(stripDef);
+							for (k=0;k<remainingNodes;k++) {
+								subtotal = d[k+startNode].calculatedTotal;
+								ratio = subtotal/stripTotal;
+								if (stripWidth > stripHeight) {
+									box = [ [stripTopLeft[0],stripTopLeft[1]],
+											[stripTopLeft[0] + stripWidth*ratio,stripBottomRight[1]]];
+									stripTopLeft[0] +=stripWidth*ratio;
+								} else {
+									box = [ [stripTopLeft[0],stripTopLeft[1]],
+											[stripBottomRight[0],stripTopLeft[1] + stripHeight*ratio]];
+									stripTopLeft[1] += stripHeight*ratio;
+								}
+								if (typeof(d[k+startNode].name)=="undefined")  d[k+startNode].name= d[k+startNode].id;
+								if (subtotal > 0) returnBoxes.push({id:d[k+startNode].id,coords:box,level:recursionLevel,parent:parentID,name:d[k+startNode].name,value:subtotal});
+								if (typeof(d[k+startNode].data) == "object") {
+									recursionLevel++;
+									recurse(d[k+startNode].data,[box[0][0],box[0][1]],[box[1][0],box[1][1]],d[k+startNode].id);
+									recursionLevel--;	
+								}
+							}
+							total -= stripTotal;
+							if (width >= height) {
+								topLeft[0] += stripWidth;
+							} else {
+								topLeft[1] += stripHeight;	
+							}
 						}
-						if (typeof(d[k+startNode].name)=="undefined")  d[k+startNode].name= d[k+startNode].id;
-						returnBoxes.push({id:d[k+startNode].id,coords:box,level:recursionLevel,parent:parentID,name:d[k+startNode].name,value:subtotal});
-						if (typeof(d[k+startNode].data) == "object") {
-							recursionLevel++;
-							recurse(d[k+startNode].data,[box[0][0],box[0][1]],[box[1][0],box[1][1]],d[k+startNode].id);
-							recursionLevel--;	
-						}
-						//total -= subtotal;
-						//stripTotal -= subtotal;
-					}
-					total -= stripTotal;
-					
-					if (width < height) {
-						topLeft[1] += stripHeight;	
 					} else {
-						topLeft[0] += stripWidth;
+						throw(ex);	
 					}
-				}
+				} 
 			}
 			recurse(d,[0,0],[width,height],"globalBox");
-		
 			
-			return returnBoxes;
+			return {boxes:returnBoxes,layoutDef:layoutDef};
 		},
 		t.determineNodeFromCoords = function(coords,level) {
 			var currentLevelBoxList = [];
@@ -159,14 +222,13 @@ var tree_map = {
 			var x,y,height,width;
 			x = t.rectByID[rectID].attrs.x;
 			y = t.rectByID[rectID].attrs.y;
-			height = t.rectByID[rectID].attrs.height;
-			width = t.rectByID[rectID].attrs.width;
-			
+			height = Math.max(t.rectByID[rectID].attrs.height,0);
+			width = Math.max(t.rectByID[rectID].attrs.width,0);
 			if (mode=="primary") {
-				t.overlayRect = t.paper.rect(x+1,y+1,width-2,height-2);
+				t.overlayRect = t.paper.rect(x+1,y+1,Math.max(width-2,0),Math.max(height-2,0));
 				t.overlayRect.attr({"stroke":"#ff0","stroke-width":2,"stroke-opacity":0.5,"fill-opacity":0});
 			} else if (mode=="secondary") {
-				t.secondaryOverlayRect =  t.paper.rect(x+2,y+2,width-4,height-4);
+				t.secondaryOverlayRect =  t.paper.rect(x+2,y+2,Math.max(width-4,0),Math.max(height-4,0));
 				t.secondaryOverlayRect.attr({"stroke":"#f00","stroke-width":4,"stroke-opacity":0.5});
 			}
 			return {x:x,y:y,height:height,width:width};
@@ -277,17 +339,12 @@ var tree_map = {
 				t.hoverText = t.paper.text(x+width/2,y+height/2,name);
 				t.hoverText.attr({"font-size":14,"fill":"#ff0","opacity":0.5});
 				$(t.hoverText.node).on("mousemove", function(e) {
-					var id = t.determineNodeFromCoords([ e.pageX - $("#" + t.canvasID).offset().left,
-												e.pageY - $("#" + t.canvasID).offset().top],
-												level+1);
-					if (id) t.rectHover(t.rectByID[id].node,e);
+					t.generalizedHover(e,level);	
 				});
 				$(t.hoverText.node).on("click",function(e) {
-					var id = t.determineNodeFromCoords([ e.pageX - $("#" + t.canvasID).offset().left,
-												e.pageY - $("#" + t.canvasID).offset().top],
-												level+1);
-					if (id) t.rectClick(t.rectByID[id].node,e);
+					t.generalizedClick(e,level);
 				});
+				t.hoverText.toFront();
 				
 			}
 			if (t.hoverText) {
@@ -307,6 +364,18 @@ var tree_map = {
 				if (t.secondaryHoverText) t.secondaryHoverText.toFront();
 			}
 		};
+		t.generalizedHover = function(e,level) {
+			var id = t.determineNodeFromCoords([ e.pageX - $("#" + t.canvasID).offset().left,
+												e.pageY - $("#" + t.canvasID).offset().top],
+												level+1);
+			if (id) t.rectHover(t.rectByID[id].node,e);
+		};
+		t.generalizedClick = function(e,level) {
+			var id = t.determineNodeFromCoords([ e.pageX - $("#" + t.canvasID).offset().left,
+												e.pageY - $("#" + t.canvasID).offset().top],
+												level+1);
+			if (id) t.rectClick(t.rectByID[id].node,e);
+		}
 		t.rectClick = function(node,e) {
 			var id = t.idByRaphaelID[node.raphaelid];
 			var level = t.levelByID[id];
@@ -380,10 +449,10 @@ var tree_map = {
 				t.dataByID[rect.id] = rect.value;
 				t.nameByID[rect.id] = rect.name;
 				if (typeof(t.rectByID[rect.id]) == "undefined") {
-					t.rectByID[rect.id] = paper.rect(x,y,width,height);
+					t.rectByID[rect.id] = paper.rect(x,y,Math.max(width,0),Math.max(height,0));
 				} else {
 					if (typeof(t.baseAnimation == "undefined")) {
-						t.baseAnimation = Raphael.animation({x:x,y:y,width:width,height:height},duration);
+						t.baseAnimation = Raphael.animation({x:x,y:y,width:Math.max(width,0),height:Math.max(height,0)},duration);
 						t.baseAnimationEl = t.rectByID[rect.id];
 						t.rectByID[rect.id].animate(t.baseAnimation);
 					} else {
@@ -409,11 +478,14 @@ var tree_map = {
 					e.cancelBubble = true;
 					e.stopPropagation();
 				});
+				t.rectByID[rect.id].attr("stroke","#000");
+				t.rectByID[rect.id].attr("stroke-opacity",0.2);
+				t.rectByID[rect.id].attr("stroke-width",0.5);
 				switch (level) {
 					case 0 :
 					t.rectByID[rect.id].attr("fill",currentColor);
 					hsvColor = t.colorUtils.RGBToHSV(t.colorUtils.HexToRGB(currentColor));
-					hsvColor[0] = (hsvColor[0] - 20)%360;
+					hsvColor[0] = (hsvColor[0] - 40)%360;
 					currentColor = t.colorUtils.RGBToHex(t.colorUtils.HSVToRGB(hsvColor));
 					if (typeof(t.textByID[rect.id]) == "undefined") {
 						t.textByID[rect.id] = paper.text(x+5,y+15,rect.name);
@@ -441,7 +513,7 @@ var tree_map = {
 					t.rectByID[rect.id].attr("fill",tintColor);
 					t.rectByID[rect.id].attr("fill-opacity",.1);
 					hsvColor = t.colorUtils.RGBToHSV(t.colorUtils.HexToRGB(tintColor));
-					hsvColor[0] = (hsvColor[0] + 20)%360;
+					hsvColor[0] = (hsvColor[0] + 40)%360;
 					tintColor = t.colorUtils.RGBToHex(t.colorUtils.HSVToRGB(hsvColor));
 					break;
 					default:
@@ -453,6 +525,15 @@ var tree_map = {
 					break;
 				}
 			});
+			for (var id in t.textByID) {
+				t.textByID[id].toFront();
+				$(t.textByID[id].node).on("mousemove", function(e) {
+					t.generalizedHover(e,t.hoverState);	
+				});	
+				$(t.textByID[id].node).on("click", function(e) {
+					t.generalizedClick(e,t.hoverState);	
+				});	
+			}
 		}
 	}
 };
