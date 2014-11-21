@@ -33,7 +33,7 @@ var tree_map = {
 				total = getTotal(d), j, k, stripCount, stripTotal, 
 				stripWidth, stripHeight, remainingNodes, stripTopLeft, 
 				stripBottomRight, startNode, stripRatio, stripCond,
-				dByID={},oD;
+				dByID={},oD,stripDef;
 				for (j=0;j<d.length;j++) {
 					d[j].calculatedTotal = getTotal(d[j].data);
 				}
@@ -82,7 +82,7 @@ var tree_map = {
 									subtotal = dByID[oD[j].boxes[k]].calculatedTotal;
 									ratio = subtotal/stripTotal;
 									
-									if (stripWidth>stripHeight) {
+									if (oD[j].boxDirection=="horizontal") {
 										box = [ [stripTopLeft[0],stripTopLeft[1]],
 												[stripTopLeft[0] + stripWidth*ratio,stripBottomRight[1]]];
 										stripTopLeft[0] += stripWidth*ratio;
@@ -148,11 +148,16 @@ var tree_map = {
 								stripTopLeft = [topLeft[0],topLeft[1]];
 								stripBottomRight = [bottomRight[0],topLeft[1]+stripHeight];
 							}
+							if (stripWidth >= stripHeight) stripDef.boxDirection = "horizontal";
+							else stripDef.boxDirection = "vertical";
 							layoutDef[parentID].push(stripDef);
+					
 							for (k=0;k<remainingNodes;k++) {
+								
 								subtotal = d[k+startNode].calculatedTotal;
 								ratio = subtotal/stripTotal;
-								if (stripWidth > stripHeight) {
+								//if (stripDef.direction!="vertical") {
+								if (stripDef.boxDirection == "horizontal") {
 									box = [ [stripTopLeft[0],stripTopLeft[1]],
 											[stripTopLeft[0] + stripWidth*ratio,stripBottomRight[1]]];
 									stripTopLeft[0] +=stripWidth*ratio;
@@ -168,6 +173,7 @@ var tree_map = {
 									recurse(d[k+startNode].data,[box[0][0],box[0][1]],[box[1][0],box[1][1]],d[k+startNode].id);
 									recursionLevel--;	
 								}
+								
 							}
 							total -= stripTotal;
 							if (width >= height) {
@@ -182,7 +188,6 @@ var tree_map = {
 				} 
 			}
 			recurse(d,[0,0],[width,height],"globalBox");
-			
 			return {boxes:returnBoxes,layoutDef:layoutDef};
 		},
 		t.determineNodeFromCoords = function(coords,level) {
