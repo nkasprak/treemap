@@ -176,7 +176,9 @@ var tree_map = {
 				return contains;
 			}
 			for (i=0;i<currentLevelBoxList.length;i++) {
-				if (containsCoords(currentLevelBoxList[i].coords,coords)) return currentLevelBoxList[i].id;
+				if (containsCoords(currentLevelBoxList[i].coords,coords)) {
+					return currentLevelBoxList[i].id;
+				}
 			}
 			return null;
 		},
@@ -254,7 +256,9 @@ var tree_map = {
 				mouseY = positionOverlayRect(pageY - $("#" + t.canvasID).offset().top,t.rectByID[id].attr("height"),t.rectByID[id].attr("y"),0);
 			}
 			mouseX = Math.min(mouseX, $("#" + t.canvasID).width() - textBBoxWidth/2);
+			mouseX = Math.max(mouseX,textBBoxWidth/2);
 			mouseY = Math.min(mouseY, $("#" + t.canvasID).height() - textBBoxHeight/2);
+			mouseY = Math.max(mouseY,textBBoxWidth/2);
 			t.secondaryHoverText.attr({x:mouseX-textBBoxWidth/2+2,y:mouseY,fill:"#fff"});
 			if (typeof(t.secondaryTextRect)=="undefined" || createNew) {
 				t.secondaryTextRect = t.paper.rect(0,0,0,0);
@@ -311,9 +315,16 @@ var tree_map = {
 			}
 			name =  t.nameByID[id];
 			function makeYellowHoverText() {
-				
-				t.hoverText = t.paper.text(x+width/2,y+height/2,name);
+				var leftPos = x+width/2;
+				var rightPos = y+height/2;
+				t.hoverText = t.paper.text(0,0,name);
 				t.hoverText.attr({"font-size":14,"fill":"#ff0","opacity":0.5});
+				var textBBox = t.hoverText.getBBox();
+				var textBBoxWidth = textBBox.width + 5;
+				var textBBoxHeight = textBBox.height + 5;
+				leftPos = Math.min(leftPos, $("#" + t.canvasID).width() - textBBoxWidth/2);
+				leftPos = Math.max(leftPos, textBBoxWidth/2);
+				t.hoverText.attr({x:leftPos,y:rightPos});
 				$(t.hoverText.node).on("mousemove", function(e) {
 					t.generalizedHover(e,level);	
 				});
@@ -340,18 +351,24 @@ var tree_map = {
 				if (t.secondaryHoverText) t.secondaryHoverText.toFront();
 			}
 		};
+		t.generalizedEvent = function(e,level,type) {
+			var action;
+			if (type=="click") action = t.rectClick;
+			else if (type=="hover") action = t.rectHover; 
+			else return false;
+			var left = e.pageX - $("#" + t.canvasID).offset().left;
+			var top = e.pageY - $("#" + t.canvasID).offset().top;
+			var id = t.determineNodeFromCoords([left,top],level+1);
+			if (id) action(t.rectByID[id].node,e);
+			else id = t.determineNodeFromCoords([left,top],level);
+			if (id) action(t.rectByID[id].node,e);
+		};
 		t.generalizedHover = function(e,level) {
-			var id = t.determineNodeFromCoords([ e.pageX - $("#" + t.canvasID).offset().left,
-												e.pageY - $("#" + t.canvasID).offset().top],
-												level+1);
-			if (id) t.rectHover(t.rectByID[id].node,e);
+			t.generalizedEvent(e,level,"hover");
 		};
 		t.generalizedClick = function(e,level) {
-			var id = t.determineNodeFromCoords([ e.pageX - $("#" + t.canvasID).offset().left,
-												e.pageY - $("#" + t.canvasID).offset().top],
-												level+1);
-			if (id) t.rectClick(t.rectByID[id].node,e);
-		}
+			t.generalizedEvent(e,level,"click");
+		};
 		t.rectClick = function(node,e) {
 			var id = t.idByRaphaelID[node.raphaelid];
 			var level = t.levelByID[id];
