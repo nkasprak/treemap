@@ -30,162 +30,133 @@ var tree_map = {
 			returnBoxes.push({id:"globalBox",name:"",level:-1,coords:[[0,0],[width,height]],parent:"none",value:getTotal(d)});
 			recurse = function(d,topLeft,bottomRight,parentID) {
 				var box, height, width, ratio, subtotal, 
-				total = getTotal(d), j, k, stripCount, stripTotal, 
+				total = getTotal(d), j, k, stripTotal, 
 				stripWidth, stripHeight, remainingNodes, stripTopLeft, 
 				stripBottomRight, startNode, stripRatio, stripCond,
-				dByID={},oD,stripDef;
+				dByID={},oD,stripDef,loopCondition,useOverride = false,
+				currentNode,boxCond;
 				for (j=0;j<d.length;j++) {
 					d[j].calculatedTotal = getTotal(d[j].data);
 				}
-				
 				d.sort(function(a,b) {
 					return b.calculatedTotal - a.calculatedTotal;
 				});
-				
 				j=0;
 				layoutDef[parentID] = [];
-				try {
-					if (layoutOverride) {
-						if (layoutOverride[parentID]) {
-							//organize data by ID
-							for (j=0;j<d.length;j++) {
-								dByID[d[j].id] = d[j];
-							}
-							oD = layoutOverride[parentID];
-							//do layout based on set pattern
-							for (j=0;j<oD.length;j++) {
-								width = bottomRight[0] - topLeft[0];
-								height = bottomRight[1] - topLeft[1];
-								stripTotal = 0;
-								for (k=0;k<oD[j].boxes.length;k++) {
-									stripTotal += dByID[oD[j].boxes[k]].calculatedTotal;
-								}
-								stripRatio = stripTotal/total;
-								
-								if (oD[j].direction=="vertical") {
-									stripWidth = stripRatio*width;
-									stripHeight = height;
-								} else {
-									stripWidth = width;
-									stripHeight = stripRatio*height;
-								}
-								if (oD[j].direction=="vertical") {
-									stripTopLeft = [topLeft[0],topLeft[1]];
-									stripBottomRight = [topLeft[0] + stripWidth,bottomRight[1]];
-								} else {
-									stripTopLeft = [topLeft[0],topLeft[1]];
-									stripBottomRight = [bottomRight[0],topLeft[1]+stripHeight];
-								}
-								
-								for (k=0;k<oD[j].boxes.length;k++) {
-									
-									subtotal = dByID[oD[j].boxes[k]].calculatedTotal;
-									ratio = subtotal/stripTotal;
-									
-									if (oD[j].boxDirection=="horizontal") {
-										box = [ [stripTopLeft[0],stripTopLeft[1]],
-												[stripTopLeft[0] + stripWidth*ratio,stripBottomRight[1]]];
-										stripTopLeft[0] += stripWidth*ratio;
-									} else {
-										box = [ [stripTopLeft[0],stripTopLeft[1]],
-												[stripBottomRight[0],stripTopLeft[1] + stripHeight*ratio]];
-										stripTopLeft[1] += stripHeight*ratio;
-									}
-									if (typeof(dByID[oD[j].boxes[k]].name)=="undefined")  dByID[oD[j].boxes[k]].name= dByID[oD[j].boxes[k]].id;
-									if (subtotal > 0) returnBoxes.push({id:dByID[oD[j].boxes[k]].id,coords:box,level:recursionLevel,parent:parentID,name:dByID[oD[j].boxes[k]].name,value:subtotal});
-									if (typeof(dByID[oD[j].boxes[k]].data) == "object") {
-										recursionLevel++;
-										recurse(dByID[oD[j].boxes[k]].data,[box[0][0],box[0][1]],[box[1][0],box[1][1]],dByID[oD[j].boxes[k]].id);
-										recursionLevel--;	
-									}
-								}
-								
-								total -= stripTotal;
-								if (oD[j].direction == "vertical") {
-									topLeft[0] += stripWidth;	
-								} else {
-									topLeft[1] += stripHeight;
-								}
-							}
+				if (layoutOverride) {
+					if (layoutOverride[parentID]) {
+						useOverride = true;
+					}
+				}
+				if (useOverride) {
+					//organize data by ID
+					for (j=0;j<d.length;j++) {
+						dByID[d[j].id] = d[j];
+					};
+					j=0;
+					oD = layoutOverride[parentID];
+					loopCondition = (j<oD.length);
+				} else {
+					loopCondition = (j<d.length);
+				}
+				while (loopCondition) {
+					width = bottomRight[0] - topLeft[0];
+					height = bottomRight[1] - topLeft[1];
+					stripTotal = 0;
+					stripCond = true;
+					k=0;
+					if (!useOverride) {
+						stripDef = {};
+						stripDef.boxes = [];
+						startNode = j;
+						remainingNodes = 0;
+					}
+					while (stripCond) {
+						if (useOverride) {
+							stripTotal += dByID[oD[j].boxes[k]].calculatedTotal;
+							k++;
+							stripCond = k<oD[j].boxes.length;
 						} else {
-							throw("default");		
-						}
-					} else {
-						throw("default");	
-					}
-				} catch (ex) {
-					if (ex=="default") {
-						while (j<d.length) {
-							stripDef = {};
-							stripDef.boxes = [];
-							width = bottomRight[0] - topLeft[0];
-							height = bottomRight[1] - topLeft[1];
-							stripTotal = 0;
-							startNode = j;
-							stripCond = true;
-							remainingNodes = 0;
-							while (stripCond) {
-								stripTotal += d[j].calculatedTotal;
-								stripRatio = stripTotal/total;
-								if (width >= height) {
-									stripDef.direction="vertical";
-									stripWidth = stripRatio*width;
-									stripHeight = height;	
-								} else {
-									stripDef.direction="horizontal";
-									stripWidth = width;
-									stripHeight = stripRatio*height;
-								}
-								stripDef.boxes.push(d[j].id);
-								remainingNodes++;
-								j++;
-								stripCond = (!(Math.max(stripWidth/stripHeight, stripHeight/stripWidth) <= remainingNodes)) && j<d.length;
-							}
-							if (width>=height) {
-								stripTopLeft = [topLeft[0],topLeft[1]];
-								stripBottomRight = [topLeft[0] + stripWidth,bottomRight[1]];
-							} else {
-								stripTopLeft = [topLeft[0],topLeft[1]];
-								stripBottomRight = [bottomRight[0],topLeft[1]+stripHeight];
-							}
-							if (stripWidth >= stripHeight) stripDef.boxDirection = "horizontal";
-							else stripDef.boxDirection = "vertical";
-							layoutDef[parentID].push(stripDef);
-					
-							for (k=0;k<remainingNodes;k++) {
-								
-								subtotal = d[k+startNode].calculatedTotal;
-								ratio = subtotal/stripTotal;
-								//if (stripDef.direction!="vertical") {
-								if (stripDef.boxDirection == "horizontal") {
-									box = [ [stripTopLeft[0],stripTopLeft[1]],
-											[stripTopLeft[0] + stripWidth*ratio,stripBottomRight[1]]];
-									stripTopLeft[0] +=stripWidth*ratio;
-								} else {
-									box = [ [stripTopLeft[0],stripTopLeft[1]],
-											[stripBottomRight[0],stripTopLeft[1] + stripHeight*ratio]];
-									stripTopLeft[1] += stripHeight*ratio;
-								}
-								if (typeof(d[k+startNode].name)=="undefined")  d[k+startNode].name= d[k+startNode].id;
-								if (subtotal > 0) returnBoxes.push({id:d[k+startNode].id,coords:box,level:recursionLevel,parent:parentID,name:d[k+startNode].name,value:subtotal});
-								if (typeof(d[k+startNode].data) == "object") {
-									recursionLevel++;
-									recurse(d[k+startNode].data,[box[0][0],box[0][1]],[box[1][0],box[1][1]],d[k+startNode].id);
-									recursionLevel--;	
-								}
-								
-							}
-							total -= stripTotal;
+							stripTotal += d[j].calculatedTotal;
+							stripRatio = stripTotal/total;
 							if (width >= height) {
-								topLeft[0] += stripWidth;
+								stripDef.direction="vertical";
+								stripWidth = stripRatio*width;
+								stripHeight = height;	
 							} else {
-								topLeft[1] += stripHeight;	
+								stripDef.direction="horizontal";
+								stripWidth = width;
+								stripHeight = stripRatio*height;
 							}
+							stripDef.boxes.push(d[j].id);
+							remainingNodes++;
+							j++;
+							stripCond = (!(Math.max(stripWidth/stripHeight, stripHeight/stripWidth) <= remainingNodes)) && j<d.length;
 						}
-					} else {
-						throw(ex);	
 					}
-				} 
+					if (useOverride) {
+						stripRatio = stripTotal/total;
+						stripCond = (oD[j].direction=="vertical");
+						if (stripCond) {
+							stripWidth = stripRatio*width;
+							stripHeight = height;
+						} else {
+							stripWidth = width;
+							stripHeight = stripRatio*height;
+						}
+						remainingNodes = oD[j].boxes.length;
+					} else {
+						if (stripWidth >= stripHeight) stripDef.boxDirection = "horizontal";
+						else stripDef.boxDirection = "vertical";
+						layoutDef[parentID].push(stripDef);
+						stripCond = (width >= height);
+					}
+					 
+					if (stripCond) {
+						stripTopLeft = [topLeft[0],topLeft[1]];
+						stripBottomRight = [topLeft[0] + stripWidth,bottomRight[1]];
+					} else {
+						stripTopLeft = [topLeft[0],topLeft[1]];
+						stripBottomRight = [bottomRight[0],topLeft[1]+stripHeight];
+					}
+					
+					for (k=0;k<remainingNodes;k++) {
+						if (useOverride) {
+							currentNode = dByID[oD[j].boxes[k]];
+							stripDef = oD[j];
+						} else currentNode = d[k+startNode];	
+						subtotal = currentNode.calculatedTotal;
+						ratio = subtotal/stripTotal;
+						if (stripDef.boxDirection=="horizontal") {
+							box = [ [stripTopLeft[0],stripTopLeft[1]],
+									[stripTopLeft[0] + stripWidth*ratio,stripBottomRight[1]]];
+							stripTopLeft[0] += stripWidth*ratio;
+						} else {
+							box = [ [stripTopLeft[0],stripTopLeft[1]],
+									[stripBottomRight[0],stripTopLeft[1] + stripHeight*ratio]];
+							stripTopLeft[1] += stripHeight*ratio;
+						}
+						if (typeof(currentNode.name)=="undefined")  currentNode.name= currentNode.id;
+						if (subtotal > 0) returnBoxes.push({id:currentNode.id,coords:box,level:recursionLevel,parent:parentID,name:currentNode.name,value:subtotal});
+						if (typeof(currentNode.data) == "object") {
+							recursionLevel++;
+							recurse(currentNode.data,[box[0][0],box[0][1]],[box[1][0],box[1][1]],currentNode.id);
+							recursionLevel--;	
+						}
+					}
+					total -= stripTotal;
+					if (stripCond) {
+						topLeft[0] += stripWidth;	
+					} else {
+						topLeft[1] += stripHeight;
+					}
+					if (useOverride) {
+						j++;
+						loopCondition = (j<oD.length);
+					} else {
+						loopCondition = (j<d.length);
+					}
+				}
 			}
 			recurse(d,[0,0],[width,height],"globalBox");
 			return {boxes:returnBoxes,layoutDef:layoutDef};
